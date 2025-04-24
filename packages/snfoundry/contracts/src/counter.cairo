@@ -46,7 +46,7 @@ pub mod Counter {
 
     #[derive(Drop, starknet::Event)]
     pub struct Increased {
-        account: ContractAddress,
+        pub account: ContractAddress,
     }
 
 
@@ -74,7 +74,7 @@ pub mod Counter {
         fn decrease_counter(ref self: ContractState) {
             let old_value = self.counter.read();
             assert(old_value > 0, Error::EMPTY_COUNTER);
-            self.counter.write(old_value);
+            self.counter.write(old_value - 1);
             self.emit(Decreased { account: get_caller_address() });
         }
 
