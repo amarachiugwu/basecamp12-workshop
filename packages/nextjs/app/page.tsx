@@ -6,8 +6,6 @@ import { useTargetNetwork } from "~~/hooks/scaffold-stark/useTargetNetwork";
 import { useScaffoldReadContract } from "~~/hooks/scaffold-stark/useScaffoldReadContract";
 import { useScaffoldWriteContract } from "~~/hooks/scaffold-stark/useScaffoldWriteContract";
 import { useScaffoldMultiWriteContract } from "~~/hooks/scaffold-stark/useScaffoldMultiWriteContract";
-// import { useScaffoldEventHistory } from "~~/hooks/scaffold-stark/useScaffoldEventHistory";
-// import { useBlockNumber } from "@starknet-react/core";
 import { useDeployedContractInfo } from "~~/hooks/scaffold-stark/useDeployedContractInfo";
 import { useScaffoldEventHistory } from "~~/hooks/scaffold-stark/useScaffoldEventHistory";
 import { useBlockNumber } from "@starknet-react/core";
@@ -76,6 +74,27 @@ const Home = () => {
       incrementCounter();
     }
   };
+
+  const {sendAsync: resetCounter} = useScaffoldMultiWriteContract({
+
+    calls: [
+      {
+        contractName: "Strk",
+        functionName: "transfer",
+        args: [counter?.address, BigInt(Number(inputAmount) * 1e18)],
+      },
+      {
+        contractName: "Counter",
+        functionName: "reset_counter",
+        args: [],
+      },
+    ],
+    
+  });
+
+  const handleReset = () => {
+    resetCounter();
+  };
   
   return (
     <div className="flex items-center flex-col flex-grow pt-10">
@@ -140,7 +159,7 @@ const Home = () => {
                 </button>
                 <button
                   className="btn btn-outline btn-lg"
-                  onClick={() => console.log("Reset clicked")}
+                  onClick={() => {handleReset()}}
                 >
                   Reset (costs {formattedBalance} STRK)
                 </button>
@@ -152,9 +171,20 @@ const Home = () => {
             <h2 className="text-2xl font-bold mb-6 text-secondary">
               Activity History
             </h2>
-            <div className="space-y-4">
-              <p className="text-center text-lg opacity-70">No activity yet</p>
-            </div>
+
+            {events && events.length > 0 ? (
+              events.map((event, index) => (
+                <div key={index} className="bg-base-200 p-4 rounded-lg mb-4">
+                  <p className="text-lg font-medium">
+                    Event {index + 1}: {event.parsedArgs.account.substring(0, 6)}...{event.parsedArgs.account.substring(event.parsedArgs.account.length - 6)} 
+                  </p>
+                </div>
+              ))  ): (
+                <div className="space-y-4">
+                <p className="text-center text-lg opacity-70">No Activities yet</p>
+              </div>  )
+            }
+           
           </div>
         </div>
       </div>
