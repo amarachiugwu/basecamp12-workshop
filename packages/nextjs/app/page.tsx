@@ -2,19 +2,80 @@
 
 import { ConnectedAddress } from "~~/components/ConnectedAddress";
 import { useState } from "react";
-// import { useScaffoldReadContract } from "~~/hooks/scaffold-stark/useScaffoldReadContract";
-// import { useScaffoldWriteContract } from "~~/hooks/scaffold-stark/useScaffoldWriteContract";
-// import { useScaffoldMultiWriteContract } from "~~/hooks/scaffold-stark/useScaffoldMultiWriteContract";
+import { useTargetNetwork } from "~~/hooks/scaffold-stark/useTargetNetwork";
+import { useScaffoldReadContract } from "~~/hooks/scaffold-stark/useScaffoldReadContract";
+import { useScaffoldWriteContract } from "~~/hooks/scaffold-stark/useScaffoldWriteContract";
+import { useScaffoldMultiWriteContract } from "~~/hooks/scaffold-stark/useScaffoldMultiWriteContract";
 // import { useScaffoldEventHistory } from "~~/hooks/scaffold-stark/useScaffoldEventHistory";
 // import { useBlockNumber } from "@starknet-react/core";
-// import { useDeployedContractInfo } from "~~/hooks/scaffold-stark/useDeployedContractInfo";
-// import { useTargetNetwork } from "~~/hooks/scaffold-stark/useTargetNetwork";
+import { useDeployedContractInfo } from "~~/hooks/scaffold-stark/useDeployedContractInfo";
+import { useScaffoldEventHistory } from "~~/hooks/scaffold-stark/useScaffoldEventHistory";
+import { useBlockNumber } from "@starknet-react/core";
 
 const Home = () => {
-  const [counterValue] = useState<number>(0);
-  const [winNumber] = useState<number>(10);
   const [inputAmount, setInputAmount] = useState<string>("");
-  const [contractBalance] = useState<string>("0.000000");
+  const  {targetNetwork} = useTargetNetwork();
+  const {data: counter} = useDeployedContractInfo(
+    "Counter"
+);
+  const { data: counterValue } = useScaffoldReadContract({
+    contractName: "Counter",
+    functionName: "get_counter",
+    args: [],
+  });
+
+  const {data: contractBalance} = useScaffoldReadContract({
+    contractName: "Strk",
+    functionName: "balance_of",
+    args: [counter?.address],
+  });
+
+  const {data: winNumber} = useScaffoldReadContract({
+    contractName: "Counter",
+    functionName: "get_win_number",
+    args: [],
+  });
+
+  const formattedBalance = contractBalance ? (Number(contractBalance) / 1e18).toFixed(6) : "0.000000";
+
+  const {sendAsync: incrementCounter} = useScaffoldWriteContract({
+    contractName: "Counter",
+    functionName: "increase_counter",
+    args: [],
+  });
+
+  const {data: blockNumber} = useBlockNumber();
+
+  const {data: events} = useScaffoldEventHistory({
+    contractName: "Counter",
+    eventName: "contracts::counter::Counter::Increased",
+    fromBlock: blockNumber ? (blockNumber > 50n) ? BigInt(blockNumber - 50) : 0n : 0n,
+    watch: true,
+  })
+
+  const {sendAsync: incrementWithStrkDeposit} = useScaffoldMultiWriteContract({
+    calls: [
+      {
+        contractName: "Strk",
+        functionName: "transfer",
+        args: [counter?.address, BigInt(Number(inputAmount) * 1e18)],
+      },
+      {
+        contractName: "Counter",
+        functionName: "increase_counter",
+        args: [],
+      },
+    ],
+  });
+
+  const  handleIncrement = () => {
+    if (inputAmount && parseFloat(inputAmount) > 0) {
+      incrementWithStrkDeposit();
+
+    }else {
+      incrementCounter();
+    }
+  };
   
   return (
     <div className="flex items-center flex-col flex-grow pt-10">
@@ -25,8 +86,8 @@ const Home = () => {
           </span>
           <div className="flex justify-center">
             <span className="text-base mt-2 badge badge-primary">
-              {/* {targetNetwork.name} */}
-              Network Name
+              
+              {targetNetwork.name}
             </span>
           </div>
         </h1>
@@ -39,13 +100,13 @@ const Home = () => {
             <div className="p-4 bg-base-200 rounded-xl">
               <h3 className="text-lg font-semibold mb-2">Current Count</h3>
               <p className="text-5xl font-bold text-center my-4">
-                {counterValue.toString()}
-                <span className="text-xl opacity-60 ml-2">/ {winNumber.toString()}</span>
+                {counterValue?.toString()}
+                <span className="text-xl opacity-60 ml-2">/ {winNumber?.toString()}</span>
               </p>
               
               <div className="bg-base-300 p-4 rounded-lg my-4">
                 <p className="text-xl font-medium text-center">
-                  Prize Pool: {contractBalance} STRK
+                  Prize Pool: {formattedBalance} STRK
                 </p>
               </div>
               
@@ -71,7 +132,7 @@ const Home = () => {
               <div className="flex justify-center gap-4 mt-4">
                 <button
                   className="btn btn-primary btn-lg"
-                  onClick={() => console.log("Increment clicked")}
+                  onClick={() => {handleIncrement()}}
                 >
                   {inputAmount && parseFloat(inputAmount) > 0
                     ? `Increment + Send ${inputAmount} STRK`
@@ -81,20 +142,20 @@ const Home = () => {
                   className="btn btn-outline btn-lg"
                   onClick={() => console.log("Reset clicked")}
                 >
-                  Reset (costs {contractBalance} STRK)
+                  Reset (costs {formattedBalance} STRK)
                 </button>
               </div>
             </div>
           </div>
           
-          {/* <div className="bg-base-100 p-8 rounded-3xl border border-gradient shadow-lg">
+          <div className="bg-base-100 p-8 rounded-3xl border border-gradient shadow-lg">
             <h2 className="text-2xl font-bold mb-6 text-secondary">
               Activity History
             </h2>
             <div className="space-y-4">
               <p className="text-center text-lg opacity-70">No activity yet</p>
             </div>
-          </div> */}
+          </div>
         </div>
       </div>
     </div>
